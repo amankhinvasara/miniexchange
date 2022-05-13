@@ -3,43 +3,46 @@ use crate::trade::{Trade, TradeType, OrderType};
 use crate::trade::OrderType::{Limit, Market};
 use crate::trade::TradeType::{Buy, Sell};
 
-pub fn get_trade_from_client() {
+pub fn get_trade_from_client() -> Trade {
 
-
-
-    println!("Enter a trade type. 1:Buy 2:Sell");
-    let mut temp: u64 = read!("{}\n");
     let mut trade_type: TradeType;
-    if temp == 1 {
-        trade_type = Buy;
-    } else if temp == 2 {
-        trade_type = Sell;
-    } else {
-        //TODO might need better logic
-        println!("You have entered a wrong command please retry");
-        return;
+    let mut temp: u64;
+    loop {
+        println!("Enter a trade type. 1:Buy 2:Sell");
+        temp: u64 = read!("{}\n");
+        if temp == 1 {
+            trade_type = Buy;
+            break;
+        } else if temp == 2 {
+            trade_type = Sell;
+            break;
+        } else {
+            //TODO might need better logic
+            println!("You have entered a wrong command please retry");
+        }
     }
 
     println!("Enter the quantity of shares you want to trade.");
     let qty: u32 = read!("{}\n");
 
 
-
-
-    println!("Enter an order type. 1:Limit 2:Market");
-    temp: u64 = read!("{}\n");
     let order_type: OrderType;
     let mut unit_price: u64 = 0;
-    if temp == 1 {
-        order_type = Limit;
-        println!("Enter a price per share in cents.");
-        unit_price = read!("{}\n");
-    } else if temp == 2 {
-        order_type = Market;
-    } else {
-        //TODO might need better logic
-        println!("You have entered a wrong command please retry");
-        return;
+    loop {
+        println!("Enter an order type. 1:Limit 2:Market");
+        temp: u64 = read!("{}\n");
+        if temp == 1 {
+            order_type = Limit;
+            println!("Enter a price per share in cents.");
+            unit_price = read!("{}\n");
+            break;
+        } else if temp == 2 {
+            order_type = Market;
+            break;
+        } else {
+            //TODO might need better logic
+            println!("You have entered a wrong command please retry");
+        }
     }
 
     let mut new_trade : Trade = Trade {
@@ -54,5 +57,6 @@ pub fn get_trade_from_client() {
         partial_fill: true, // always will partial fill in OME
         expiration_date : 0 // unused as well, just set to 0
     } ;
-    println!("{:?}", new_trade);
+    println!("{:?}", new_trade); //make sure to send this new struct
+    return new_trade;
 }

@@ -5,6 +5,8 @@ mod trade;
 mod orderbook;
 mod esb;
 mod client;
+mod dropcopy;
+mod tickerplant;
 
 
 /**
