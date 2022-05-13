@@ -19,5 +19,6 @@ impl Dropcopy {
     }
 
     //send updates do we use TCP? or UDP?
+
 }
 

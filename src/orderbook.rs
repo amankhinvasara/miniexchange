@@ -1,8 +1,9 @@
 use std::collections::{HashMap, LinkedList};
 use std::time::SystemTime;
-use crate::trade::{OrderUpdate, Trade, TradeType};
+use crate::trade::{OrderUpdate, Trade, TradeType, Status};
 use crate::trade::OrderType::{Limit, Market};
 use crate::trade::TradeType::{Buy, Sell};
+use crate::trade::Status::{Filled, PartiallyFilled, Failed, Cancelled};
 use rand::Rng;
 use ntest::timeout;
 
@@ -24,7 +25,6 @@ pub struct OrderBook {
 
 impl OrderBook {
     //cleanup all trades as the end of the day or need some other scheme to clean expired trades
-
     pub fn new() -> Self {
         //const SIZE: usize = 18446744073709551615; 64
         //const SIZE: usize = 4294967296; 32
@@ -46,7 +46,29 @@ impl OrderBook {
         //remove from price linked list
         //clone the list,modify the clone,  remove map entry, insert new one
         //modify bid_max and ask_min
-        //let mut list = self.prices[&self.book[&order_id].unit_price].as_ref().unwrap().clone();
+        let mut trade = self.book[&order_id];
+        if trade.trade_type == Buy && trade.unit_price == self.bid_max {
+            //look for the next largest bid count down
+
+            let mut list = self.prices.get_mut(&self.book[&order_id].unit_price).unwrap().as_mut().unwrap();
+            for element in list.iter_mut().rev() {
+                if element.trade_type == Buy {
+                    self.bid_max = element.unit_price;
+                    break;
+                }
+            }
+
+        } else if trade.trade_type == Sell && trade.unit_price == self.ask_min {
+            //look for the next smallest min count up
+            let mut list = self.prices.get_mut(&trade.unit_price).unwrap().as_mut().unwrap();
+            for element in list.iter_mut() {
+                if element.trade_type == Sell {
+                    self.ask_min = element.unit_price;
+                    break;
+                }
+            }
+        }
+
         let mut list = self.prices.get_mut(&self.book[&order_id].unit_price).unwrap().as_mut().unwrap();
         let mut i = 0;
         for element in list.iter_mut() {
@@ -96,8 +118,7 @@ impl OrderBook {
         return one && two;
     }
 
-    // //Could create and return a spread struct that contains bid and ask, not sure about the best implementation
-    pub fn top(&self) -> (u64, u64) {
+    pub fn bbo(&self) -> (u64, u64) {
         return (self.bid_max, self.ask_min);
     }
 
@@ -164,10 +185,10 @@ impl OrderBook {
                 }
             }
         }
-
+        //Orders that reach this point can be filled, partial fill, neither
+        //remove filled orders from the book
         for trade in &orders_filled {
             if trade.qty == 0 {
-                //println!("SIZE IS {}", orders_filled.len());
                 self.remove(trade.order_id);
             }
         }
@@ -176,7 +197,6 @@ impl OrderBook {
         }
         //make sure return values are correct
         return (incoming_trade.clone(), orders_filled);
-
     }
 
     //TODO create another function that routes to add/modify/match based on order type
@@ -194,21 +214,52 @@ impl OrderBook {
         }
     }
 
-    // pub fn trade_to_order_update(trades: Vec<Trade>) {
-    //     order_updates : Vec<OrderUpdate> = Vec![];
-    //     for t in trades {
-    //         order_update = OrderUpdate {
-    //             trader_id: t.trader_id,
-    //             order_id: t.order_id,
-    //             order_type: t.Ordertype,
-    //             unit_price: f64, //make sure prices are modified correctly earlier
-    //             qty: t.qty, //make sure the correct quantity is set earlier
-    //             time_stamp: SystemTime::now(),
-    //             status: Status
-    //         }
-    //     }
-    //
-    // }
+    //the last update in the output vector is always the taker
+    pub fn trade_to_order_update(taker: Trade, trades: Vec<Trade>) -> Vec<OrderUpdate>{
+        let mut order_updates : Vec<OrderUpdate> = vec![];
+        let mut stat: Status;
+        let mut avg_price: u64 = 0;
+        //then rest of trades
+        for t in &trades {
+            avg_price += t.unit_price;
+
+            if t.qty == 0 {
+                stat = Filled;
+            } else {
+                stat = PartiallyFilled;
+            }
+            let order_update = OrderUpdate {
+                trader_id: t.trader_id,
+                order_id: t.order_id,
+                order_type: t.order_type,
+                unit_price: t.unit_price, //make sure prices are modified correctly earlier
+                qty: t.qty, //returns the quantity of that is left in the orderbook. Trader must match with what they sent earlier. //TODO refactor structs to fix tis
+                time_stamp: SystemTime::now(),
+                status: stat
+            };
+            order_updates.push(order_update);
+        }
+
+        //taker
+        if taker.qty == 0 {
+            stat = Filled;
+        } else {
+            stat = PartiallyFilled;
+        }
+        let order_update = OrderUpdate {
+            trader_id: taker.trader_id,
+            order_id: taker.order_id,
+            order_type: taker.order_type,
+            unit_price: avg_price / trades.len() as u64, //make sure prices are modified correctly earlier
+            qty: taker.qty, //returns the quantity of that is left in the orderbook. Trader must match with what they sent earlier. //TODO refactor structs to fix tis
+            time_stamp: SystemTime::now(),
+            status: stat
+        };
+
+        order_updates.push(order_update);
+        return order_updates;
+
+    }
 
 
     #[cfg(any(test, test_utilities))]

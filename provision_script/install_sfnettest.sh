@@ -16,6 +16,11 @@ cp /home/vagrant/dev/cns-sfnettest/src/sfnt-stream /home/vagrant/bin
 
 chown -R vagrant:vagrant /home/vagrant/dev
 
-
 echo "Finished building sfnettest"
-
+sudo yum install git -y
+yum install install curl
+curl https://sh.rustup.rs -sSf | sh -s -- -y
+source $HOME/.cargo/env
+sudo yum -y install gcc
+rustup default nightly
+#git clone https://gitlab.engr.illinois.edu/ie598_high_frequency_trading_spring_2022/ie498_hft_spring_2022_group_05/group_05_project.git
