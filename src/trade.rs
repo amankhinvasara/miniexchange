@@ -41,5 +41,5 @@ pub enum Status {
     Filled,
     PartiallyFilled,
     Failed,
-    Cancelled,
+    Success,
 }

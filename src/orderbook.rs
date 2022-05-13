@@ -3,7 +3,7 @@ use std::time::SystemTime;
 use crate::trade::{OrderUpdate, Trade, TradeType, Status};
 use crate::trade::OrderType::{Limit, Market};
 use crate::trade::TradeType::{Buy, Sell};
-use crate::trade::Status::{Filled, PartiallyFilled, Failed, Cancelled};
+use crate::trade::Status::{Filled, PartiallyFilled, Failed, Success};
 use rand::Rng;
 use ntest::timeout;
 
@@ -11,7 +11,6 @@ use ntest::timeout;
 //TODO make book and prices only visible for tests
 pub struct OrderBook {
     pub book: HashMap<u64, Trade>, //order_id, Trade
-
     //https://stackoverflow.com/questions/28656387/initialize-a-large-fixed-size-array-with-non-copy-types
     //index is price, LL is trades at that price
     pub prices: HashMap<u64, Option<LinkedList<Trade>>>,
@@ -40,8 +39,25 @@ impl OrderBook {
         }
     }
 
+    pub fn single_trade_to_update(& mut self, input: Trade, input_status: u8) -> OrderUpdate {
+        let stat: Status;
+        if input_status == 1 {
+            stat = Success;
+        } else {
+            stat = Failed;
+        }
+        return OrderUpdate {
+            trader_id: input.trader_id,
+            order_id: input.order_id,
+            order_type: input.order_type,
+            unit_price: input.unit_price,
+            qty: input.qty,
+            time_stamp: SystemTime::now(),
+            status: stat,
+        };
+    }
 
-    pub fn remove(&mut self, order_id: u64) -> bool {
+    pub fn remove(&mut self, order_id: u64) -> OrderUpdate {
         //use order_id and get price from book
         //remove from price linked list
         //clone the list,modify the clone,  remove map entry, insert new one
@@ -80,13 +96,13 @@ impl OrderBook {
             i += 1;
         }
         //insert new list into price levels (should override previous list) and remove from book
+        let store = self.book[&order_id].clone();
         self.book.remove(&order_id);
-        return true;
+        return self.single_trade_to_update(store, 1);
     }
 
 
-
-    pub fn insert(&mut self, trade: Trade) -> bool {
+    pub fn insert(&mut self, trade: Trade) -> OrderUpdate {
         //insert into hashmap and then add to the appropriate arrays linked list
         self.book.insert(trade.order_id, trade);
         //true is bid(buyers) and false is ask(seller)
@@ -105,17 +121,17 @@ impl OrderBook {
         } else if trade.trade_type == Sell && trade.unit_price < self.ask_min {
             self.ask_min = trade.unit_price;
         }
-        return true;
+        return self.single_trade_to_update(trade, 1);
     }
 
 
-    pub fn modify(&mut self, order_id: u64, trade_input: Trade) -> bool {
+    pub fn modify(&mut self, order_id: u64, trade_input: Trade) -> OrderUpdate {
         if trade_input.order_id != order_id {
-            return false; //modify fails
+            return self.single_trade_to_update(trade_input, 0); //modify fails
         }
-        let one = self.remove(order_id);
+        self.remove(order_id);
         let two = self.insert(trade_input);
-        return one && two;
+        return two;
     }
 
     pub fn bbo(&self) -> (u64, u64) {
@@ -199,27 +215,14 @@ impl OrderBook {
         return (incoming_trade.clone(), orders_filled);
     }
 
-    //TODO create another function that routes to add/modify/match based on order type
-    //Enforce that route and maybe "fn top" are the only point of interaction w the order book
-    pub fn route(&mut self, incoming_trade: Trade)  { //-> Vec<OrderUpdate>
-        //if the order id already exists then send it to modify or cancel??????
-        if self.book.contains_key(&incoming_trade.order_id) && self.book[&incoming_trade.order_id].trader_id == incoming_trade.trader_id  {
-            if incoming_trade.unit_price == 0 { //cancel if the price is 0
-                self.remove(incoming_trade.order_id);
-            } else { //otherwise modify
-                self.modify(incoming_trade.order_id, incoming_trade);
-            }
-        } else {
-            self.matching(&mut incoming_trade.clone());
-        }
-    }
+
 
     //the last update in the output vector is always the taker
-    pub fn trade_to_order_update(taker: Trade, trades: Vec<Trade>) -> Vec<OrderUpdate>{
+    pub fn trade_to_order_update(&mut self, taker: Trade, trades: Vec<Trade>) -> Vec<OrderUpdate>{
         let mut order_updates : Vec<OrderUpdate> = vec![];
         let mut stat: Status;
         let mut avg_price: u64 = 0;
-        //then rest of trades
+        //resting trades
         for t in &trades {
             avg_price += t.unit_price;
 
@@ -240,7 +243,7 @@ impl OrderBook {
             order_updates.push(order_update);
         }
 
-        //taker
+        //then taker trade
         if taker.qty == 0 {
             stat = Filled;
         } else {
@@ -259,6 +262,24 @@ impl OrderBook {
         order_updates.push(order_update);
         return order_updates;
 
+    }
+
+
+    //TODO create another function that routes to add/modify/match based on order type
+    //Enforce that route and maybe "fn top" are the only point of interaction w the order book
+    pub fn route(&mut self, incoming_trade: Trade) -> Vec<OrderUpdate> {
+        //if the order id already exists then send it to modify or cancel??????
+        if self.book.contains_key(&incoming_trade.order_id) && self.book[&incoming_trade.order_id].trader_id == incoming_trade.trader_id  {
+            if incoming_trade.unit_price == 0 { //cancel if the price is 0
+                return vec![self.remove(incoming_trade.order_id)];
+            } else { //otherwise modify
+                return vec![self.modify(incoming_trade.order_id, incoming_trade)]; //returns the current trade
+            }
+        } else {
+            let (mut one, mut two) = self.matching(&mut incoming_trade.clone());
+            let updates_to_be_sent = self.trade_to_order_update(one, two);
+            return updates_to_be_sent;
+        }
     }
 
 
