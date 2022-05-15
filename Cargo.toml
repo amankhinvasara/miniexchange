@@ -9,3 +9,7 @@ edition = "2021"
 rand = "0.8"
 ntest = "0.7"
 text_io = "0.1.10"
+socket2 = {version = "0.3.4", features = ["reuseport"]}
+bincode = "1.2.1"
+lazy_static = "1.0"
+serde = { version = "1.0.137", features = ["derive"] }

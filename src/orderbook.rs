@@ -1,4 +1,8 @@
 use std::collections::{HashMap, LinkedList};
+use std::net::{IpAddr, SocketAddr, Ipv4Addr,};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::thread;
 use std::time::SystemTime;
 use crate::trade::{OrderUpdate, Trade, TradeType, Status};
 use crate::trade::OrderType::{Limit, Market};
@@ -6,6 +10,9 @@ use crate::trade::TradeType::{Buy, Sell};
 use crate::trade::Status::{Filled, PartiallyFilled, Failed, Success};
 use rand::Rng;
 use ntest::timeout;
+use crate::esb::ESB;
+use lazy_static::lazy_static;
+use crate::esb;
 
 
 //TODO make book and prices only visible for tests
@@ -21,6 +28,12 @@ pub struct OrderBook {
 }
 
 
+lazy_static! {
+    pub static ref IPV4: IpAddr = Ipv4Addr::new(224, 0, 0, 123).into();
+}
+pub const PORT: u16 = 5021;
+pub const GATEWAY_PORT: u16 = 5022;
+pub const FORWARDER_PORT: u16 = 5023;
 
 impl OrderBook {
     //cleanup all trades as the end of the day or need some other scheme to clean expired trades
@@ -283,7 +296,7 @@ impl OrderBook {
     }
 
 
-    #[cfg(any(test, test_utilities))]
+    //#[cfg(any(test, test_utilities))]
     pub fn generate_random_trade() -> Trade {
         let mut rng = rand::thread_rng();
         let num = rng.gen::<u8>();
@@ -338,6 +351,132 @@ impl OrderBook {
             partial_fill: true,
             expiration_date: rng.gen::<u32>(),
         }
+    }
+
+    // pub fn multicast_sender(addr: IpAddr) {
+    //     assert!(addr.is_multicast());
+    //
+    //     let addr = SocketAddr::new(addr, PORT);
+    //     let client_done = Arc::new(AtomicBool::new(false)); //tracks if client socket is running
+    //     let notify = crate::esb::NotifyServer(Arc::clone(&client_done));
+    //
+    //     // ESB::multicast_listener(client_done, addr);
+    //
+    //     println!("ipv4 :client: running");
+    //
+    //     //insert data to send
+    //     let trade = OrderUpdate {
+    //         trader_id: 1,
+    //         order_id: 1,
+    //         order_type: Market,
+    //         unit_price: 1,
+    //         qty: 1,
+    //         time_stamp: SystemTime::now(),
+    //         status: Filled
+    //     };
+    //
+    //     let encoded = bincode::serialize(&trade).unwrap();
+    //
+    //     println!("ipv4:client: send data: {:?}", trade);
+    //     println!("{:?}", encoded);
+    //
+    //     // Setup sending socket
+    //     let socket = ESB::new_sender(&addr).expect("could not create sender!");
+    //     socket.send_to(&encoded, &addr).expect("could not send_to!");
+    //
+    //
+    //     let mut buf = [0u8; 64]; // receive buffer
+    //
+    //     // Expected response
+    //     match socket.recv_from(&mut buf) {
+    //         Ok((len, remote_addr)) => {
+    //             let data = &buf[..len];
+    //
+    //             println!("{:?}", data);
+    //
+    //             let mut decoded: OrderUpdate = bincode::deserialize(data).unwrap();
+    //             decoded.trader_id = 0;
+    //             decoded.order_id = 0;
+    //
+    //             //let response = data;
+    //             println!("ipv4:client: got data: {:?}", decoded);
+    //         }
+    //
+    //         Err(err) => {
+    //             println!("ipv4:client: had a problem: {}", err);
+    //             assert!(false);
+    //         }
+    //     }
+    //     // Making sure that the server is not notified until the end of the client test
+    //     drop(notify);
+    // }
+
+    // pub fn interact_only() {
+    //     //thread::Builder::new().name("thread1".to_string()).spawn(move || {
+    //     //println!("Hello, world!");
+    //     let gate_addr = SocketAddr::new(addr, GATEWAY_PORT);
+    //     ESB::multicast_listener(gate_addr);
+    //     //});
+    // }
+
+    pub fn ome_multicast_listener(addr: SocketAddr)  { //-> JoinHandle<()>
+        // socket creation
+        let listener = ESB::connect_multicast(addr).expect("failing to create listener");
+        println!("ipv4:server: joined: {}", addr);
+
+        println!("ipv4:server: is ready");
+
+        // Looping infinitely.
+        loop {
+            // test receive and response code will go here...
+            let mut buf = [0u8; 64]; // receive buffer
+
+            match listener.recv_from(&mut buf) {
+                Ok((len, remote_addr)) => {
+                    //Adjusted for OrderUpdate data
+                    let data = &buf[..len];
+                    let mut decoded: Trade = bincode::deserialize(data).unwrap();
+                    let encoded = bincode::serialize(&decoded).unwrap();
+
+                    println!("ipv4:server: got data: {} from: {}", String::from_utf8_lossy(data), remote_addr);
+                    println!("data: {:?}", decoded);
+
+                    //create a socket to send the response
+                    let forward_addr = SocketAddr::new(esb::IPV4.clone(), FORWARDER_PORT);
+                    let forwarder = ESB::new_socket(&forward_addr).expect("failing to create responder").into_udp_socket();
+
+                    //we send the response that was set at the method beginning
+                    forwarder.send_to(&encoded, &forward_addr).expect("failing to respond");
+                }
+                Err(err) => {
+                    println!("ipv4:server: got an error: {}", err);
+                }
+            }
+        }
+    }
+    pub fn multicast_sender(addr: IpAddr) {
+        let addr = SocketAddr::new(addr, PORT);
+        println!("ipv4 :client: running");
+        //insert data to send
+        // let trade = OrderUpdate {
+        //     trader_id: 1,
+        //     order_id: 1,
+        //     order_type: Market,
+        //     unit_price: 1,
+        //     qty: 1,
+        //     time_stamp: SystemTime::now(),
+        //     status: Filled
+        // }
+        let trade = OrderBook::generate_random_trade();
+        println!("{:?}", trade);
+
+        let encoded = bincode::serialize(&trade).unwrap();
+        //println!("ipv4:client: send data: {:?}", trade);
+        //println!("{:?}", encoded);
+        // Setup sending socket
+        let socket = ESB::new_sender(&addr).expect("could not create sender!");
+        socket.send_to(&encoded, &addr).expect("could not send_to!");
+        //println!("Sent");
     }
 }
 

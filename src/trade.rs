@@ -1,6 +1,8 @@
 use std::time::SystemTime;
+use serde::Serialize;
+use serde::Deserialize;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct Trade {
     pub trader_id: u8,
     pub stock_id: u16, //we could leave this blank and assume that our exchange only trades one asset type
@@ -13,19 +15,19 @@ pub struct Trade {
     pub expiration_date: u32, //immediate fill, end_of_day, 90 day? unsure what common types there are
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum OrderType  {
     Market,
     Limit,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum TradeType  {
     Buy, 
     Sell
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct OrderUpdate {
     pub trader_id: u8,
     pub order_id: u64,
@@ -36,7 +38,7 @@ pub struct OrderUpdate {
     pub status: Status
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum Status {
     Filled,
     PartiallyFilled,
