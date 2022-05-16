@@ -23,5 +23,6 @@ sudo yum install curl -y
 sudo -u vagrant -i bash -c 'curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y'
 source $HOME/.cargo/env
 sudo yum -y install gcc
+rustup toolchain install nightly
 rustup default nightly
 #git clone https://gitlab.engr.illinois.edu/ie598_high_frequency_trading_spring_2022/ie498_hft_spring_2022_group_05/group_05_project.git
