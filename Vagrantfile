@@ -105,6 +105,8 @@ Vagrant.configure("2") do |config|
     end
     
     tcp2.vm.network "private_network", ip: "192.168.50.102", virtualbox__intnet: "tcp_network", nic_type: "virtio"
+
+    tcp2.vm.provision "shell", path: "provision_script/install_sfnettest.sh" #what does this line do?
   end
 
   config.vm.define "dropcopy" do |tcp3|
@@ -116,6 +118,8 @@ Vagrant.configure("2") do |config|
       end
 
       tcp3.vm.network "private_network", ip: "192.168.50.103", virtualbox__intnet: "tcp_network", nic_type: "virtio"
+
+      tcp3.vm.provision "shell", path: "provision_script/install_sfnettest.sh" #what does this line do?
   end
 
   config.vm.define "tickerplant" do |tcp4|
@@ -127,6 +131,8 @@ Vagrant.configure("2") do |config|
         end
 
         tcp4.vm.network "private_network", ip: "192.168.50.104", virtualbox__intnet: "tcp_network", nic_type: "virtio"
+
+        tcp4.vm.provision "shell", path: "provision_script/install_sfnettest.sh" #what does this line do?
     end
 
 
@@ -139,6 +145,8 @@ Vagrant.configure("2") do |config|
           end
 
           tcp5.vm.network "private_network", ip: "192.168.50.105", virtualbox__intnet: "tcp_network", nic_type: "virtio"
+
+          tcp5.vm.provision "shell", path: "provision_script/install_sfnettest.sh" #what does this line do?
   end
 
   config.vm.define "trader1" do |tcp6|
@@ -150,6 +158,8 @@ Vagrant.configure("2") do |config|
           end
 
           tcp6.vm.network "private_network", ip: "192.168.50.106", virtualbox__intnet: "tcp_network", nic_type: "virtio"
+
+          tcp6.vm.provision "shell", path: "provision_script/install_sfnettest.sh" #what does this line do?
   end
 
   config.vm.define "trader2" do |tcp7|
@@ -161,6 +171,8 @@ Vagrant.configure("2") do |config|
           end
 
           tcp7.vm.network "private_network", ip: "192.168.50.107", virtualbox__intnet: "tcp_network", nic_type: "virtio"
+
+          tcp7.vm.provision "shell", path: "provision_script/install_sfnettest.sh" #what does this line do?
   end
 
   config.vm.define "trader3" do |tcp8|
@@ -172,6 +184,8 @@ Vagrant.configure("2") do |config|
           end
 
           tcp8.vm.network "private_network", ip: "192.168.50.108", virtualbox__intnet: "tcp_network", nic_type: "virtio"
+
+          tcp8.vm.provision "shell", path: "provision_script/install_sfnettest.sh" #what does this line do?
   end
 
 
