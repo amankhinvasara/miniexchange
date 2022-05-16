@@ -18,7 +18,7 @@ chown -R vagrant:vagrant /home/vagrant/dev
 
 echo "Finished building sfnettest"
 sudo yum install git -y
-yum install install curl
+sudo yum install curl -y
 curl https://sh.rustup.rs -sSf | sh -s -- -y
 source $HOME/.cargo/env
 sudo yum -y install gcc
