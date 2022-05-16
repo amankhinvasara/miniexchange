@@ -19,7 +19,8 @@ chown -R vagrant:vagrant /home/vagrant/dev
 echo "Finished building sfnettest"
 sudo yum install git -y
 sudo yum install curl -y
-curl https://sh.rustup.rs -sSf | sh -s -- -y
+# curl https://sh.rustup.rs -sSf | sh -s -- -y
+sudo -u vagrant -i bash -c 'curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y'
 source $HOME/.cargo/env
 sudo yum -y install gcc
 rustup default nightly
