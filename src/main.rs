@@ -41,14 +41,14 @@ fn main() {
         // ome.listen();
 
     } else if input == "2" {
-        let addr = SocketAddr::new(esb::IPV4.clone(), esb::PORT);
+        let addr = SocketAddr::new(*esb::IPV4, esb::PORT);
         //loop {
             //ESB::multicast_listener(Arc::new(AtomicBool::new(false)), addr);
             ESB::multicast_listener(addr);
         //}
 
     } else if input == "3" {
-        let addr = SocketAddr::new(esb::IPV4.clone(), esb::PORT);
+        let addr = SocketAddr::new(*esb::IPV4, esb::PORT);
         //loop {
         //ESB::multicast_listener(Arc::new(AtomicBool::new(false)), addr);
         OrderBook::ome_multicast_listener(addr);
