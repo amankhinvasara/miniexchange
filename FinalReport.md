@@ -185,13 +185,13 @@ Above is an example of our client-gateway communication. On the left-hand side, 
    This includes messing with compiler to change stack size
    - Add in checking similar to LULD SEC. This would help ensure people don't place trades just to bog down orderbook speed
    - Create a client interface that is easier to use than command line input
-   - Setup network monitoring to be able to be able to track an order from one end of the system end to the other end (submitting an order -> filling it -> getting info back to client).
+   - Setup network monitoring to be able to track an order from one end of the system end to the other end (submitting an order -> filling it -> getting info back to client).
    This would help us realize what parts of our system are slow.
    - Gateway OME completion
    - More Unit Testing & System integration testing
 
 **5. What advice do you offer to future students taking this course and working on their semester-long project (besides “start earlier”... everyone ALWAYS says that). Providing detailed thoughtful advice to future students will be weighed heavily in evaluating your responses.**
-   - Personally, I think there no need to start earlier. It is more important to manage expectations and make sure people are on top of their assigned tasks on a weekly basis. If some teammates are consistently not meeting deadlines then it is vital to quickly step in and finish there work so that the project can be finished according to your timeline.
+   - Personally, I think there is no need to start earlier. It is more important to manage expectations and make sure people are on top of their assigned tasks on a weekly basis. If some teammates are consistently not meeting deadlines then it is vital to quickly step in and finish their work so that the project can be finished according to your timeline.
    - Honestly evaluate group member skill sets when deciding project and work allocation. Then spread your workload evenly. Note that this does not mean everyone gets equal work. I think people with more experience should be able to handle slightly more work.
    - Take time to evaluate potential technologies and their tradeoffs. For example, we could have used Python for our project instead of Rust. Python is a rather slow language with less control over underlying hardware. It also abstracts many features which reduces the amount that programmers have to learn. On the other hand, Rust development takes longer but there is opportunity to learn more about underlying features.
    - Hold group members accountable! It is important to check-in early and often with teammates who are not meeting expectations.
