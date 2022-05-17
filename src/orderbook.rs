@@ -1,5 +1,5 @@
 use std::collections::{HashMap, LinkedList};
-use std::net::{IpAddr, SocketAddr, Ipv4Addr,};
+use std::net::{IpAddr, SocketAddr, Ipv4Addr, UdpSocket};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
@@ -469,13 +469,16 @@ impl OrderBook {
         // }
         let trade = OrderBook::generate_random_trade();
         //println!("{:?} ", trade);
+        let sender = UdpSocket::bind("192.168.50.102:5021").expect("couldn't bind to address");
+        //socket.bind(&SockAddr::from(SocketAddr::new(Ipv4Addr::new(0, 0, 0, 0).into(), 0,);
 
         let encoded = bincode::serialize(&trade).unwrap();
         //println!("ipv4:client: send data: {:?}", trade);
         //println!("{:?}", encoded);
         // Setup sending socket
-        let socket = ESB::new_sender(&addr).expect("could not create sender!");
-        socket.send_to(&encoded, &addr).expect("could not send_to!");
+        //let socket = ESB::new_sender(&addr).expect("could not create sender!");
+        //socket.send_to(&encoded, &addr).expect("could not send_to!");
+        sender.send_to(&encoded, &addr).expect("could not send_to!");
         println!("{:?} Sent", trade);
     }
 }
