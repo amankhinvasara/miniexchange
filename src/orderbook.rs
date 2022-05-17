@@ -344,8 +344,9 @@ impl OrderBook {
         }
     }
 
-    pub fn ome_multicast_listener(addr: SocketAddr)  { //-> JoinHandle<()>
+    pub fn ome_multicast_main(addr: SocketAddr)  { //-> JoinHandle<()>
         // socket creation
+        let mut ome = OrderBook::new();
         let listener = ESB::connect_multicast(addr).expect("failing to create listener");
         println!("ipv4:server: joined: {}", addr);
 
@@ -359,17 +360,22 @@ impl OrderBook {
                     //Adjusted for OrderUpdate data
                     let data = &buf[..len];
                     let mut decoded: Trade = bincode::deserialize(data).unwrap();
-                    let encoded = bincode::serialize(&decoded).unwrap();
 
-                    println!("ipv4:server: got data: {} from: {}", String::from_utf8_lossy(data), remote_addr);
-                    println!("data: {:?}", decoded);
+                    let vector = OrderBook::route(&mut ome, decoded);
+                    for update in vector {
+                        let encoded = bincode::serialize(&update).unwrap();
 
-                    //create a socket to send the response
-                    let forward_addr = SocketAddr::new(esb::IPV4.clone(), PUBLIC_TP_FORWARDER_PORT);
-                    let forwarder = ESB::new_socket(&forward_addr).expect("failing to create responder").into_udp_socket();
+                        println!("ipv4:server: got data: {} from: {}", String::from_utf8_lossy(data), remote_addr);
+                        println!("data: {:?}", decoded);
 
-                    //we send the response that was set at the method beginning
-                    forwarder.send_to(&encoded, &forward_addr).expect("failing to respond");
+                        //create a socket to send the response
+                        let forward_addr = SocketAddr::new(esb::IPV4.clone(), PUBLIC_TP_FORWARDER_PORT);
+                        let forwarder = ESB::new_socket(&forward_addr).expect("failing to create responder").into_udp_socket();
+
+                        //we send the response that was set at the method beginning
+                        forwarder.send_to(&encoded, &forward_addr).expect("failing to respond");
+                    }
+
                 }
                 Err(err) => {
                     println!("ipv4:server: got an error: {}", err);

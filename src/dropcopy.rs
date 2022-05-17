@@ -20,7 +20,7 @@ impl Dropcopy {
         }
     }
 
-    pub fn dropcopy_multicast_listener(addr: SocketAddr)  { //-> JoinHandle<()>
+    pub fn dropcopy_multicast_main(addr: SocketAddr)  { //-> JoinHandle<()>
         // socket creation
         let listener = ESB::connect_multicast(addr).expect("failing to create listener");
         println!("ipv4:server: joined: {}", addr);

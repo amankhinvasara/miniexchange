@@ -24,6 +24,7 @@ use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
 use std::str;
+use crate::dropcopy::Dropcopy;
 use crate::trade::{Trade, TradeType, OrderType};
 
 
@@ -54,7 +55,8 @@ fn main() {
 
     if input == "1" || input == "ome" {
         //run ome
-        println!("hi");
+        let addr = SocketAddr::new(*esb::IPV4, esb::PORT);
+        OrderBook::ome_multicast_main(addr);
     } else if input == "2" || input == "client" {
         //run client
         println!("Enter the trader id (1, 2, or 3)");
@@ -102,6 +104,13 @@ fn main() {
         //}
 
         // ome.listen();
+    } else if input == "4" || input == "dropcopy" {
+        let addr = SocketAddr::new(*esb::IPV4, esb::PORT);
+        Dropcopy::dropcopy_multicast_main(addr);
+
+    } else if input == "5" || input == "tickerplant" {
+        let addr = SocketAddr::new(*esb::IPV4, esb::PORT);
+        TickerPlant:: tp_multicast_main(addr);
     }
 }
 
