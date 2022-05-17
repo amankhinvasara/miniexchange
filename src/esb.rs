@@ -1,51 +1,146 @@
 use std::io;
-use std::net::{Ipv4Addr, SocketAddr, ToSocketAddrs, UdpSocket};
 use std::time::Duration;
+use std::sync::{Arc, Barrier};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::thread::{JoinHandle};
+use std::time::SystemTime;
 
-pub enum ESB{
+use socket2::{Domain, Protocol, SockAddr, Socket, Type};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 
+use crate::trade::{OrderType, OrderUpdate, Trade, TradeType};
+use crate::trade::OrderType::{Limit, Market};
+use crate::trade::TradeType::{Buy, Sell};
+use crate::trade::Status::{Filled, PartiallyFilled, Failed, Success};
+
+use bincode;
+use lazy_static::lazy_static;
+use crate::OrderBook;
+
+/// This will guarantee we always tell the server to stop
+pub struct NotifyServer(pub Arc<AtomicBool>);
+impl Drop for NotifyServer {
+    fn drop(&mut self) {
+        self.0.store(true, Ordering::Relaxed);
+    }
 }
 
+pub struct ESB{}
+
+lazy_static! {
+    pub static ref IPV4: IpAddr = Ipv4Addr::new(224, 0, 1, 123).into();
+}
+pub const PORT: u16 = 5021;
+pub const GATEWAY_PORT: u16 = 5022;
+pub const PUBLIC_TP_FORWARDER_PORT: u16 = 5023;
+pub const PUBLIC_DPCP_FORWARDER_PORT: u16 = 5024;
 impl ESB {
-    //For now this is just a wrapper around some functions from https://doc.rust-lang.org/stable/std/net/struct.UdpSocket.html
+    //basic helper functions
+    // General for creating new socket
+    pub fn new_socket(addr: &SocketAddr) -> io::Result<Socket> {
+        let socket = Socket::new(Domain::ipv4(), Type::dgram(), Some(Protocol::udp()))?;
 
-    pub fn bind<A: ToSocketAddrs>(addr: A) -> io::Result<UdpSocket> {
-        return UdpSocket::bind(addr);
+        // The read timeout prevents waiting for packets
+        socket.set_read_timeout(Some(Duration::from_millis(100)))?;
+
+        Ok(socket)
     }
 
-    pub fn recv_from( socket: UdpSocket, buf: &mut [u8]) -> io::Result<(usize, SocketAddr)> {
-        return UdpSocket::recv_from(&socket, buf);
+
+    pub fn connect_multicast(addr: SocketAddr) -> io::Result<std::net::UdpSocket> {
+        let ip_addr = addr.ip();
+        let socket = ESB::new_socket(&addr)?;
+
+
+        match ip_addr {
+            IpAddr::V4(ref mdns_v4) => {
+                socket.join_multicast_v4(mdns_v4, &Ipv4Addr::new(0, 0, 0, 0))?;
+            }
+            IpAddr::V6(ref mdns_v6) => {
+                socket.join_multicast_v6(mdns_v6, 0)?;
+                socket.set_only_v6(true)?;
+            }
+        };
+
+        // bind to the socket addr
+        println!("{}", addr);
+        ESB::bind_multicast(&socket, &addr)?;
+        Ok(socket.into_udp_socket())
     }
 
-    pub fn join_multicast_v4(socket: UdpSocket, multiaddr: &Ipv4Addr, interface: &Ipv4Addr) -> io::Result<()> {
-        return UdpSocket::join_multicast_v4(&socket, multiaddr, interface)
+
+    pub fn multicast_listener(addr: SocketAddr)  { //-> JoinHandle<()>
+        // socket creation
+        let listener = ESB::connect_multicast(addr).expect("failing to create listener");
+        println!("ipv4:server: joined: {}", addr);
+
+        println!("ipv4:server: is ready");
+
+        // Looping infinitely.
+        loop {
+            // test receive and response code will go here...
+            let mut buf = [0u8; 64]; // receive buffer
+
+            match listener.recv_from(&mut buf) {
+                Ok((len, remote_addr)) => {
+                    //Adjusted for OrderUpdate data
+                    let data = &buf[..len];
+                    let mut decoded: Trade = bincode::deserialize(data).unwrap();
+
+                    let encoded = bincode::serialize(&decoded).unwrap();
+
+                    println!("ipv4:server: got data: {} from: {}", String::from_utf8_lossy(data), remote_addr);
+                    println!("data: {:?}", decoded);
+
+                    // //create a socket to send the response
+                    // let responder = ESB::new_socket(&remote_addr)
+                    //     .expect("failing to create responder")
+                    //     .into_udp_socket();
+                    //
+                    // //we send the response that was set at the method beginning
+                    // responder
+                    //     .send_to(&encoded, &remote_addr)
+                    //     .expect("failing to respond");
+
+                    //println!("ipv4:server: sent response to: {}", remote_addr);
+                }
+                Err(err) => {
+                    println!("ipv4:server: got an error: {}", err);
+                }
+            }
+        }
     }
 
-    pub fn leave_multicast_v4(socket: UdpSocket, multiaddr: &Ipv4Addr, interface: &Ipv4Addr) -> io::Result<()> {
-        return UdpSocket::leave_multicast_v4(&socket, multiaddr, interface);
+    // Create a new socket on the client
+    pub fn new_sender(addr: &SocketAddr) -> io::Result<std::net::UdpSocket> {
+        let socket = ESB::new_socket(addr)?;
+
+        socket.bind(&SockAddr::from(SocketAddr::new(Ipv4Addr::new(0, 0, 0, 0).into(), 0, )))?;
+
+        Ok(socket.into_udp_socket())
     }
 
-    pub fn send_to<A: ToSocketAddrs>(socket: UdpSocket, buf: &[u8], addr: A) -> io::Result<usize> {
-        return UdpSocket::send_to(&socket, buf, addr);
+
+    #[cfg(windows)]
+    pub fn bind_multicast(self, socket: &Socket, addr: &SocketAddr) -> io::Result<()> {
+        let addr = match *addr {
+            SocketAddr::V4(addr) => SocketAddr::new(Ipv4Addr::new(0, 0, 0, 0).into(), addr.port()),
+            SocketAddr::V6(addr) => {
+                SocketAddr::new(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 0).into(), addr.port())
+            }
+        };
+        socket.bind(&socket2::SockAddr::from(addr))
     }
 
-    pub fn set_multicast_loop_v4(socket: UdpSocket, multicast_loop_v4: bool) -> io::Result<()> {
-        return UdpSocket::set_multicast_loop_v4(&socket, multicast_loop_v4);
+    #[cfg(unix)]
+    fn bind_multicast(socket: &Socket, addr: &SocketAddr) -> io::Result<()> {
+        socket.bind(&socket2::SockAddr::from(*addr))
+        //let addr2: &SocketAddr = &SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8080);
+        //return socket.bind(&socket2::SockAddr::from(*addr2));
     }
 
-    pub fn multicast_loop_v4(socket: UdpSocket) -> io::Result<bool> {
-        return UdpSocket::multicast_loop_v4(&socket);
-    }
+    // Serialize and send/receive tp data over multicast
+    // send data we get and receive data from OME
 
-    pub fn set_read_timeout(socket: UdpSocket, dur: Option<Duration>) -> io::Result<()> {
-        return UdpSocket::set_read_timeout(&socket, dur);
-    }
-
-    pub fn set_multicast_ttl_v4(socket: UdpSocket, multicast_ttl_v4: u32) -> io::Result<()> {
-        return UdpSocket::set_multicast_ttl_v4(&socket, multicast_ttl_v4);
-    }
-
-    pub fn multicast_ttl_v4(socket: UdpSocket) -> io::Result<u32> {
-        return UdpSocket::multicast_ttl_v4(&socket);
-    }
 }
+

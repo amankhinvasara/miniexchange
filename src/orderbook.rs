@@ -1,16 +1,24 @@
 use std::collections::{HashMap, LinkedList};
-use crate::trade::{Trade, TradeType};
+use std::net::{IpAddr, SocketAddr, Ipv4Addr, UdpSocket};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::thread;
+use std::time::SystemTime;
+use crate::trade::{OrderUpdate, Trade, TradeType, Status};
 use crate::trade::OrderType::{Limit, Market};
 use crate::trade::TradeType::{Buy, Sell};
+use crate::trade::Status::{Filled, PartiallyFilled, Failed, Success};
 use rand::Rng;
+use ntest::timeout;
+use crate::esb::{ESB, PORT, PUBLIC_TP_FORWARDER_PORT};
+use lazy_static::lazy_static;
+use crate::esb;
 
 
 
 //TODO make book and prices only visible for tests
 pub struct OrderBook {
     pub book: HashMap<u64, Trade>, //order_id, Trade
-
-    //https://stackoverflow.com/questions/28656387/initialize-a-large-fixed-size-array-with-non-copy-types
     //index is price, LL is trades at that price
     pub prices: HashMap<u64, Option<LinkedList<Trade>>>,
     //bids- people who are buying -> should be least to greatest
@@ -20,17 +28,13 @@ pub struct OrderBook {
 }
 
 
+lazy_static! {
+    pub static ref IPV4: IpAddr = Ipv4Addr::new(224, 0, 0, 123).into();
+}
 
 impl OrderBook {
     //cleanup all trades as the end of the day or need some other scheme to clean expired trades
-
     pub fn new() -> Self {
-        //const SIZE: usize = 18446744073709551615; 64
-        //const SIZE: usize = 4294967296; 32
-        //const SIZE: usize = 65536; 16
-        // const SIZE: usize = 256;
-        // const INIT: Option<LinkedList<Trade>> = Some(LinkedList::new());
-        // let array: [Option<LinkedList<Trade>>; SIZE] = [INIT; SIZE];
         Self {
             book: HashMap::new(),
             prices: HashMap::new(),
@@ -39,13 +43,52 @@ impl OrderBook {
         }
     }
 
+    fn single_trade_to_update(input: Trade, input_status: u8) -> OrderUpdate {
+        let stat: Status;
+        if input_status == 1 {
+            stat = Success;
+        } else {
+            stat = Failed;
+        }
+        return OrderUpdate {
+            trader_id: input.trader_id,
+            order_id: input.order_id,
+            order_type: input.order_type,
+            unit_price: input.unit_price,
+            qty: input.qty,
+            time_stamp: SystemTime::now(),
+            status: stat,
+        };
+    }
 
-    pub fn remove(&mut self, order_id: u64) -> bool {
+    pub fn remove(&mut self, order_id: u64) -> OrderUpdate {
         //use order_id and get price from book
         //remove from price linked list
         //clone the list,modify the clone,  remove map entry, insert new one
         //modify bid_max and ask_min
-        //let mut list = self.prices[&self.book[&order_id].unit_price].as_ref().unwrap().clone();
+        let mut trade = self.book[&order_id];
+        if trade.trade_type == Buy && trade.unit_price == self.bid_max {
+            //look for the next largest bid count down
+
+            let mut list = self.prices.get_mut(&self.book[&order_id].unit_price).unwrap().as_mut().unwrap();
+            for element in list.iter_mut().rev() {
+                if element.trade_type == Buy {
+                    self.bid_max = element.unit_price;
+                    break;
+                }
+            }
+
+        } else if trade.trade_type == Sell && trade.unit_price == self.ask_min {
+            //look for the next smallest min count up
+            let mut list = self.prices.get_mut(&trade.unit_price).unwrap().as_mut().unwrap();
+            for element in list.iter_mut() {
+                if element.trade_type == Sell {
+                    self.ask_min = element.unit_price;
+                    break;
+                }
+            }
+        }
+
         let mut list = self.prices.get_mut(&self.book[&order_id].unit_price).unwrap().as_mut().unwrap();
         let mut i = 0;
         for element in list.iter_mut() {
@@ -57,13 +100,13 @@ impl OrderBook {
             i += 1;
         }
         //insert new list into price levels (should override previous list) and remove from book
+        let store = self.book[&order_id].clone();
         self.book.remove(&order_id);
-        return true;
+        return OrderBook::single_trade_to_update(store, 1);
     }
 
 
-
-    pub fn insert(&mut self, trade: Trade) -> bool {
+    pub fn insert(&mut self, trade: Trade) -> OrderUpdate {
         //insert into hashmap and then add to the appropriate arrays linked list
         self.book.insert(trade.order_id, trade);
         //true is bid(buyers) and false is ask(seller)
@@ -82,21 +125,20 @@ impl OrderBook {
         } else if trade.trade_type == Sell && trade.unit_price < self.ask_min {
             self.ask_min = trade.unit_price;
         }
-        return true;
+        return OrderBook::single_trade_to_update(trade, 1);
     }
 
 
-    pub fn modify(&mut self, order_id: u64, trade_input: Trade) -> bool {
+    pub fn modify(&mut self, order_id: u64, trade_input: Trade) -> OrderUpdate {
         if trade_input.order_id != order_id {
-            return false; //modify fails
+            return OrderBook::single_trade_to_update(trade_input, 0); //modify fails
         }
-        let one = self.remove(order_id);
+        self.remove(order_id);
         let two = self.insert(trade_input);
-        return one && two;
+        return two;
     }
 
-    // //Could create and return a spread struct that contains bid and ask, not sure about the best implementation
-    pub fn top(&self) -> (u64, u64) {
+    pub fn bbo(&self) -> (u64, u64) {
         return (self.bid_max, self.ask_min);
     }
 
@@ -163,10 +205,10 @@ impl OrderBook {
                 }
             }
         }
-
+        //Orders that reach this point can be filled, partial fill, neither
+        //remove filled orders from the book
         for trade in &orders_filled {
             if trade.qty == 0 {
-                //println!("SIZE IS {}", orders_filled.len());
                 self.remove(trade.order_id);
             }
         }
@@ -175,43 +217,77 @@ impl OrderBook {
         }
         //make sure return values are correct
         return (incoming_trade.clone(), orders_filled);
+    }
+
+
+
+    //the last update in the output vector is always the taker
+    pub fn trade_to_order_update(&mut self, taker: Trade, trades: Vec<Trade>) -> Vec<OrderUpdate>{
+        let mut order_updates : Vec<OrderUpdate> = vec![];
+        let mut stat: Status;
+        let mut avg_price: u64 = 0;
+        //resting trades
+        for t in &trades {
+            avg_price += t.unit_price;
+
+            if t.qty == 0 {
+                stat = Filled;
+            } else {
+                stat = PartiallyFilled;
+            }
+            let order_update = OrderUpdate {
+                trader_id: t.trader_id,
+                order_id: t.order_id,
+                order_type: t.order_type,
+                unit_price: t.unit_price, //make sure prices are modified correctly earlier
+                qty: t.qty, //returns the quantity of that is left in the orderbook. Trader must match with what they sent earlier. //TODO refactor structs to fix tis
+                time_stamp: SystemTime::now(),
+                status: stat
+            };
+            order_updates.push(order_update);
+        }
+
+        //then taker trade
+        if taker.qty == 0 {
+            stat = Filled;
+        } else {
+            stat = PartiallyFilled;
+        }
+        let order_update = OrderUpdate {
+            trader_id: taker.trader_id,
+            order_id: taker.order_id,
+            order_type: taker.order_type,
+            unit_price: avg_price / trades.len() as u64, //make sure prices are modified correctly earlier
+            qty: taker.qty, //returns the quantity of that is left in the orderbook. Trader must match with what they sent earlier. //TODO refactor structs to fix tis
+            time_stamp: SystemTime::now(),
+            status: stat
+        };
+
+        order_updates.push(order_update);
+        return order_updates;
 
     }
 
-    //TODO create another function that routes to add/modify/match based on order type
+
     //Enforce that route and maybe "fn top" are the only point of interaction w the order book
-    pub fn route(&mut self, incoming_trade: Trade)  { //-> Vec<OrderUpdate>
+    pub fn route(&mut self, incoming_trade: Trade) -> Vec<OrderUpdate> {
         //if the order id already exists then send it to modify or cancel??????
         if self.book.contains_key(&incoming_trade.order_id) && self.book[&incoming_trade.order_id].trader_id == incoming_trade.trader_id
         && incoming_trade.order_type != Market {
             if incoming_trade.unit_price == 0 { //cancel if the price is 0
-                self.remove(incoming_trade.order_id);
+                return vec![self.remove(incoming_trade.order_id)];
             } else { //otherwise modify
-                self.modify(incoming_trade.order_id, incoming_trade);
+                return vec![self.modify(incoming_trade.order_id, incoming_trade)]; //returns the current trade
             }
         } else {
-            self.matching(&mut incoming_trade.clone());
+            let (mut one, mut two) = self.matching(&mut incoming_trade.clone());
+            let updates_to_be_sent = self.trade_to_order_update(one, two);
+            return updates_to_be_sent;
         }
     }
 
-    // pub fn trade_to_order_update(trades: Vec<Trade>) {
-    //     order_updates : Vec<OrderUpdate> = Vec![];
-    //     for t in trades {
-    //         order_update = OrderUpdate {
-    //             trader_id: t.trader_id,
-    //             order_id: t.order_id,
-    //             order_type: t.Ordertype,
-    //             unit_price: f64, //make sure prices are modified correctly earlier
-    //             qty: t.qty, //make sure the correct quantity is set earlier
-    //             time_stamp: SystemTime::now(),
-    //             status: Status
-    //         }
-    //     }
-    //
-    // }
 
-
-    #[cfg(any(test, test_utilities))]
+    //#[cfg(any(test, test_utilities))]
     pub fn generate_random_trade() -> Trade {
         let mut rng = rand::thread_rng();
         let num = rng.gen::<u8>();
@@ -266,6 +342,62 @@ impl OrderBook {
             partial_fill: true,
             expiration_date: rng.gen::<u32>(),
         }
+    }
+
+    pub fn ome_multicast_listener(addr: SocketAddr)  { //-> JoinHandle<()>
+        // socket creation
+        let listener = ESB::connect_multicast(addr).expect("failing to create listener");
+        println!("ipv4:server: joined: {}", addr);
+
+        // Looping infinitely.
+        loop {
+            // test receive and response code will go here...
+            let mut buf = [0u8; 64]; // receive buffer
+
+            match listener.recv_from(&mut buf) {
+                Ok((len, remote_addr)) => {
+                    //Adjusted for OrderUpdate data
+                    let data = &buf[..len];
+                    let mut decoded: Trade = bincode::deserialize(data).unwrap();
+                    let encoded = bincode::serialize(&decoded).unwrap();
+
+                    println!("ipv4:server: got data: {} from: {}", String::from_utf8_lossy(data), remote_addr);
+                    println!("data: {:?}", decoded);
+
+                    //create a socket to send the response
+                    let forward_addr = SocketAddr::new(esb::IPV4.clone(), PUBLIC_TP_FORWARDER_PORT);
+                    let forwarder = ESB::new_socket(&forward_addr).expect("failing to create responder").into_udp_socket();
+
+                    //we send the response that was set at the method beginning
+                    forwarder.send_to(&encoded, &forward_addr).expect("failing to respond");
+                }
+                Err(err) => {
+                    println!("ipv4:server: got an error: {}", err);
+                }
+            }
+        }
+    }
+
+    pub fn multicast_sender(addr: IpAddr) {
+        let addr = SocketAddr::new(addr, PORT);
+        println!("ipv4 :client: running");
+
+
+        let trade = OrderBook::generate_random_trade();
+        let update = OrderBook::single_trade_to_update(trade, 1);
+        //println!("{:?} ", trade);
+        //let sender = UdpSocket::bind("224.0.1.124:5021").expect("couldn't bind to address");
+        //socket.bind(&SockAddr::from(SocketAddr::new(Ipv4Addr::new(0, 0, 0, 0).into(), 0,);
+        //sender.set_ttl(255);
+
+        let encoded = bincode::serialize(&update).unwrap();
+        //println!("ipv4:client: send data: {:?}", trade);
+        //println!("{:?}", encoded);
+        // Setup sending socket
+        let socket = ESB::new_sender(&addr).expect("could not create sender!");
+        socket.send_to(&encoded, &addr).expect("could not send_to!");
+        //sender.send_to(&encoded, &addr).expect("could not send_to!");
+        println!("{:?} Sent", trade);
     }
 }
 

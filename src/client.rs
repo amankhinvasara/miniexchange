@@ -66,7 +66,6 @@ pub fn start_server(curr_ip_addr: String, msg_channel_receiver: Receiver<Vec<u8>
     println!("Server listening on port 8082");
 
     // let gateway_msg_channel = gateway_msg_channel_sender.clone();
-
     for stream in listener.incoming() {
         match stream {
             Ok(mut stream) => {

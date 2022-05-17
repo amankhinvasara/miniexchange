@@ -2,10 +2,20 @@
 #![feature(type_ascription)]
 
 use std::env;
+use std::net::{Ipv4Addr, SocketAddr, UdpSocket};
+use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
+use crate::esb::ESB;
+use crate::orderbook::OrderBook;
+use crate::tickerplant::TickerPlant;
+
+
 mod trade;
 mod orderbook;
 mod esb;
 mod client;
+mod dropcopy;
+mod tickerplant;
 mod gateway;
 use std::collections::HashMap;
 use text_io::read;
@@ -15,6 +25,8 @@ use std::thread;
 use std::time::Duration;
 use std::str;
 use crate::trade::{Trade, TradeType, OrderType};
+
+
 
 
 /**
@@ -80,11 +92,16 @@ fn main() {
     } else if input == "3" || input == "gateway" {
         // GATEWAY LOGIC
         gateway::start_gatway();
+        //create ome
+        //listen for stuff
+        //listen function will call OME route! Keep looping inside listener
+        //let ome = OrderBook::new();
+        let addr = esb::IPV4.clone();
+        //loop {
+        OrderBook::multicast_sender(addr);
+        //}
 
+        // ome.listen();
     }
 }
 
-
-// pub fn serialize(message: Trade) {
-
-// }
