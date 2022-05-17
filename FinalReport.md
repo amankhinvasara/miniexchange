@@ -9,10 +9,10 @@ Akhil is a current senior at the University of Illinois at Urbana-Champaign stud
 Nisha is a current Senior at the University of Illinois at Urbana-Champaign studying Computer Science graduating in Spring 2022. Post-graduation, Nisha will be working as a software engineer at Modern Treasury, a payment operations company. Nisha enjoys programming in Python and Ruby focusing on backend web-based development.
 
 **Akul Gupta:** (akulg3@illinois.edu)
-Akul is a current sophomore at the University of Illinois Urbana-Champaign studying Computer Science with an expected graduation of Spring 2024. In the summer of 2022, Akul will be working at Opensense as a software development engineer.
+Akul is a current sophomore at the University of Illinois Urbana-Champaign studying Computer Science with an expected graduation of Spring 2024. In the summer of 2022, Akul will be working at Opensense as a software development engineer. Akul enjoys working with new tech stacks and is interested in the fintech space.
 
 **Aman Khinvasara:** (amantk2@illinois.edu)
-Akul is a current sophomore at the University of Illinois Urbana-Champaign studying Computer Engineering with an expected graduation of Spring 2023. In the summer of 2022, Aman will be working at Amazon as a software development engineer intern.
+Aman is a current sophomore at the University of Illinois Urbana-Champaign studying Computer Engineering with an expected graduation of Spring 2023. In the summer of 2022, Aman will be working at Amazon as a software development engineer intern. Aman enjoys working on DeFi projects and blockchain development, and is familiar with Solidity.
 
 ## Project Description:
 
@@ -20,17 +20,17 @@ This was our final project for IE498-High Frequency Trading under professor [Dav
 
 Traders connect directly to the gateway using TCP to send orders and receive order updates. Currently traders input orders using a basic command line interface. After the order is submitted, it is sent to the Gateway where we validate the information contained in the order. If it is valid, the trade is sent to the order matching engine using UDP multicast. The matching engine receives orders and determines if the incoming order matches with any resting orders on the book. If no trades can be executed, and the incoming order is a limit order, we rest the order on the orderbook. Otherwise we use the gateway to send information back to the client indicating that the trade was not executed. The tickerplant publishes public market data using UDP multicast whenever a trade is executed. The dropcopy aggregates all private market data related to a single company and sends it to the main trader/client from the company.
 
-## Technology:
+## Technologies:
 
 In order to develop and build our exchange we utilized a variety of technologies. The main technologies we used included Rust, CI/CD & RPI, UFW Firewall, Vagrant & VM, and Git.
 
-## Rust:
+### Rust:
 
 In order to develop a fast and efficient system we decided to choose a systems programming language. We chose Rust as our primary development language instead of C or C++ as Rust is a newer language that has been becoming increasingly popular among developers and we wanted to gain more experience using it in a project.
 
 ### CI/CD & RPI:
 
-CI/CD is extremely useful because when new code changes are made to our project during development the code is regularly built, tested, and merged to the repository. Our CI/CD server is externally set up on a Raspberry Pi instead of using a cloud provider such as AWS because it was cheaper to run 24/7 and one of our group members had an extra Raspberry Pi.
+CI/CD is useful because it allows us to automate testing when new code changes are made to our project during development. As new code is pushed, it is regularly built, tested, and merged to the repository. Our CI/CD server is externally set up on a Raspberry Pi instead of using a cloud provider such as AWS because it was cheaper to run 24/7 and one of our group members had an extra Raspberry Pi.
 
 ### UFW Firewall:
 
@@ -63,42 +63,59 @@ The order matching engine receives the orders that were sent from the client thr
 
 ### Ticker Plant:
 
-The market data ticker plant utilizes the information sent from the order matching engine and creates a market data book update message. The tickerplant data update message is sent using UDP multicast, to which multiple clients can connect to and ensure simultaneous receipt of market data to minimize providing unfair advantages to a few clients.  
+The market data ticker plant utilizes the information sent from the order matching engine and creates a market data book update message. The tickerplant data update message is sent using UDP multicast, to which multiple clients can connect to and ensure simultaneous receipt of market data to avoid providing unfair advantages to a few clients.  
 
 ### Dropcopy:
 
-The dropcopy aggregates order and trade data for a single trading entity across all of its clients. The data that the gateway sends to each client is replicated in a single stream to a single machine, often used as a kill switch system at the broker-dealer. For example, one broker-dealer that has 10 different trading desks, each with its own connection to the gateway, can have a single back-office system that receives data from the dropcopy, to provide a holistic view.
+The dropcopy aggregates order and trade data for a single trading entity across all of its clients. The data that the gateway sends to each client is replicated in a single stream to a single machine, often used as a kill switch system at the broker-dealer. For example, one broker-dealer that has 10 different trading desks, each with its own connection to the gateway, can have a single back-office system that receives data from the dropcopy, to provide a holistic view of all of their trades.
 
 ## Git Repo Layout:
 
 - On the main branch, src/ has all of our code
 - Everything is run from src/main.rs
 - In order to run our project you must have cargo, rust, and vagrant installed locally on your computer.
+- All other branches contain code that is being worked and should not be used to run any part of the project.
 
 ## Instructions to Run Project:
 
-- To generate, provision, and turn on the VMs, run vagrant up. Make sure that VirtualBox or another VM manager is installed. We have already installed all the packages that the VMs need to run.
+First clone our repository using 
+- `git clone https://gitlab.engr.illinois.edu/ie598_high_frequency_trading_spring_2022/ie498_hft_spring_2022_group_05/group_05_project.git` 
 
+Then open the project directory using:
 - `cd group-05-project`
+
+To generate, provision, and turn on the VMs, run vagrant up. Make sure that VirtualBox or another VM manager is installed. We have already installed all the prerequisite software that the VMs need to run.
 - `vagrant up`
 
 
-To enter the terminal of a single VM, we need to SSH into a single VM. Open a new terminal for each entity in the Vagrantfile and ssh into the respective entity. To run a specific entity, we can provide command line arguments after running our main file. Below is an example of SSH’ing into a single VM and running that entity.
+To access a VM, we need to SSH into it. Open a new terminal for each entity in the Vagrantfile and ssh into the respective entity. Then clone or download our repository in EACH entity. This clone can be done using the above `git clone` command. 
 
-`vagrant status      # lists the statuses of the VMs`
 
-`vagrant ssh gateway`
+To run a specific entity, we can provide command line arguments that specify the name of the VM. Below is an example of SSH’ing into a single VM and running that entity.
 
-`cargo run gateway`
+`vagrant status      # lists the names and statuses of all of the VMs`
 
+`vagrant ssh gateway # ssh's into the gateway VM`
+
+`cargo run gateway # actually runs the gateway` 
 
 Make sure that each entity is up and running BEFORE you start the gateway. For the client specifically, there will be STDIN prompts that the user will need to provide to generate the orders. If you do not want to do this manually, you can create a simple python script that periodically pipes data into the STDIN of the client entity.
 
+The VM names, as specified in the vagrant file, and the corresponding cargo run commands are as follows.
+
+- gateway - cargo run gateway
+- ome - cargo run ome
+- dropcopy - cargo run dropcopy
+- tickerplant - cargo run tickerplant
+- trader1 - cargo run client
+- trader2 - cargo run client
+- trader3 - cargo run client
+
 ## Testing:
-We developed tests for our exchange in order to ensure its functionality. They were particularly useful in validating orderbook/matching engine functionality. We also implemented a basic ci/cd pipeline that is able to run our test suite and maintain functionality of the project as we progressed throughout the course of the semester.
+We also implemented a basic ci/cd pipeline that is able to run our test suite and maintain functionality of the project as we progressed throughout the course of the semester. For system/integration testing, we wrote a bash script to be run on the same machine as one of the clients, simulating a trading desk actually using the exchange.
 
 ## Project Results:
-
+We accomplished building all of the components of an exchange, with various components networked together. The clients connect directly to the gateway using TCP to send their orders using a basic command line interface. After the order is submitted, it is sent to the gateway where we validate the order and send it forward to the order matching engine using UDP multicast. Note that as of May 16th, 2022 this UDP connection is not fully functional. The matching engine processes the order, attempting to match it with a resting order or otherwise placing limit orders on the book (if it’s a market order that can’t be executed, an error message is sent back to the client). After executing the trade, information about the trade is broadcast over UDP multicast to the tickerplant and dropcopy. The tickerplant then publishes public market data using UDP multicast to clients, and the dropcopy aggregates all private market data related to a single company and sends it to the main trader/client from the company. The tickerplant also broadcasts data updates when the BBO changes.
 
 ## Post-Mortem Project Analysis
 ### Nisha Pant Post-Mortem
@@ -122,7 +139,7 @@ We developed tests for our exchange in order to ensure its functionality. They w
    - Start earlier
    - Choose a project where everyone could sufficiently contribute
    - Pseudocode the entities a bit more before starting the full implementation of all of them
-   This would remove a lot of blockers when in the process of coding
+     - This would remove a lot of blockers when in the process of coding
 
 **4. If you were to continue working on this project, what would you continue to do to improve it, how, and why?**
    - Create much more in-depth tests
@@ -145,20 +162,21 @@ We developed tests for our exchange in order to ensure its functionality. They w
    - Full CI/CD setup
    - Initial Vagrant configuration & environment setup
    - Gateway Validation contribution & Gateway order_id creation. Nisha completed the integration of these methods into the Gateway
-   - Basic STDIN Client implementation. Nisha implimented interfacing with the Gateway using this version of our client.
-
+   - Basic STDIN Client implementation. Nisha implemented interfacing with the Gateway using this version of our client.
 
 
 **2. What did you learn as a result of doing your project?**
    - Gained familiarity with Rust
    - Gained a strong understanding networking concepts and experience with network programming.
-   - Better understanding of CI/CD and the importance of thorough testing
+   - Better understanding of CI/CD and the importance of thorough testing.
 
 **3. If you had a time machine and could go back to the beginning, what would you have done differently?**
-   - Communicated more clearly with group members so we could finish the project within the semester.
+   - Communicated more clearly with group members so that we could finish the project within the semester.
+   - I would have started programming the UDP connections earlier, leaving my groupmates to flush out more of the basic logic.
 
 **4. If you were to continue working on this project, what would you continue to do to improve it, how, and why?**
-   - Enhance authentication between tcp and gateway. Right now pretty much anyone can spoof an IP address and connect to our gateway. Ideally we would add a firewall and some sort of key based authentication method.
+   - Finish networking components so that we have a cohesive mini-exchange.
+   - Enhance authentication between tcp and gateway.
    - Improve ESB functionality to maintain some sort of naive ordering/handle dropped packets better
    - Optimize orderbook speed via compiler intrinsics, more defined memory allocation.
    This includes messing with compiler to change stack size
@@ -170,19 +188,16 @@ We developed tests for our exchange in order to ensure its functionality. They w
    - More Unit Testing & System integration testing
 
 **5. What advice do you offer to future students taking this course and working on their semester-long project (besides “start earlier”... everyone ALWAYS says that). Providing detailed thoughtful advice to future students will be weighed heavily in evaluating your responses.**
-   - No need to start earlier
-   - Spread your workload evenly
-   - Honestly evaluate group member skillsets when deciding project and work allocation
-   - Take time to evaluate potential technologies and their tradeoffs
-   - Python v Rust
-   - Hold group members accountable
+   - Personally, I think there no need to start earlier. It is more important to manage expectations and make sure people are on top of their assigned tasks on a weekly basis. If some teammates are consistently not meeting deadlines then it is vital to quickly step in and finish there work so that the project can be finished according to your timeline.
+   - Honestly evaluate group member skill sets when deciding project and work allocation. Then spread your workload evenly. Note that this does not mean everyone gets equal work. I think people with more experience should be able to handle slightly more work.
+   - Take time to evaluate potential technologies and their tradeoffs. For example, we could have used Python for our project instead of Rust. Python is a rather slow language with less control over underlying hardware. It also abstracts many features which reduces the amount that programmers have to learn. On the other hand, Rust development takes longer but there is opportunity to learn more about underlying features.
+   - Hold group members accountable! It is important to check-in early and often with teammates who are not meeting expectations.
 
-   
 
 ### Akul Gupta Post-Mortem
 **1. What did you specifically do individually for this project?**
    - Collaborated on overall exchange design
-   - Worked on initial trading structure
+   - Trading structures and design
    - Tickerplant development
    - Worked UDP development and understanding how it internally works within the exchange
    - Final Report
