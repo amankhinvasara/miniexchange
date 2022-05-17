@@ -468,7 +468,7 @@ impl OrderBook {
         //     status: Filled
         // }
         let trade = OrderBook::generate_random_trade();
-        println!("{:?}", trade);
+        //println!("{:?} ", trade);
 
         let encoded = bincode::serialize(&trade).unwrap();
         //println!("ipv4:client: send data: {:?}", trade);
@@ -476,7 +476,7 @@ impl OrderBook {
         // Setup sending socket
         let socket = ESB::new_sender(&addr).expect("could not create sender!");
         socket.send_to(&encoded, &addr).expect("could not send_to!");
-        //println!("Sent");
+        println!("{:?} Sent", trade);
     }
 }
 

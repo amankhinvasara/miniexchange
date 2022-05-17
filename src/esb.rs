@@ -28,7 +28,7 @@ impl Drop for NotifyServer {
 pub struct ESB{}
 
 lazy_static! {
-    pub static ref IPV4: IpAddr = Ipv4Addr::new(224, 0, 0, 123).into();
+    pub static ref IPV4: IpAddr = Ipv4Addr::new(224, 0, 1, 123).into();
 }
 pub const PORT: u16 = 5021;
 pub const GATEWAY_PORT: u16 = 5022;
@@ -56,7 +56,6 @@ impl ESB {
         let ip_addr = addr.ip();
         let socket = ESB::new_socket(&addr)?;
 
-        // IP protocol
         match ip_addr {
             IpAddr::V4(ref mdns_v4) => {
                 socket.join_multicast_v4(mdns_v4, &Ipv4Addr::new(0, 0, 0, 0))?;
@@ -68,6 +67,7 @@ impl ESB {
         };
 
         // bind to the socket addr
+        println!("{}", addr);
         ESB::bind_multicast(&socket, &addr)?;
         Ok(socket.into_udp_socket())
     }
@@ -203,6 +203,8 @@ impl ESB {
     #[cfg(unix)]
     fn bind_multicast(socket: &Socket, addr: &SocketAddr) -> io::Result<()> {
         socket.bind(&socket2::SockAddr::from(*addr))
+        //let addr2: &SocketAddr = &SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8080);
+        //return socket.bind(&socket2::SockAddr::from(*addr2));
     }
 
     // Serialize and send/receive tp data over multicast
