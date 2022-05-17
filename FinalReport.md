@@ -47,7 +47,7 @@ In order to simplify VM creation and management we used a software called Vagran
 We choose to use git as our version control software (VCS) because it is the most commonly used VCS in industry. Version control software is important because it allows us to split the workload and collaborate efficiently.
 
 ## Components:
-
+![Mini-Exchange Architecture Diagram](final_design_diagram.png "Mini Exchange Architecture Diagram")
 #### Gateway:
 
 The gateway is the middle-man between the clients and the rest of the exchange. Clients communicate with the gateway to send orders and receive updates on submitted orders. The clients and gateway communicate via the transfer control protocol (TCP).  TCP is a reliable protocol (meaning dropped packets are automatically retransmitted), packets are ordered, and is unicast (one to one only). TCP is ideal for this component of the exchange compared to UDP as we can not have packets being dropped and need to ensure the ordering of trades.
@@ -115,8 +115,11 @@ The VM names, as specified in the vagrant file, and the corresponding cargo run 
 We also implemented a basic ci/cd pipeline that is able to run our test suite and maintain functionality of the project as we progressed throughout the course of the semester. For system/integration testing, we wrote a bash script to be run on the same machine as one of the clients, simulating a trading desk actually using the exchange.
 
 ## Project Results:
-We accomplished building all of the components of an exchange, with various components networked together. The clients connect directly to the gateway using TCP to send their orders using a basic command line interface. After the order is submitted, it is sent to the gateway where we validate the order and send it forward to the order matching engine using UDP multicast. Note that as of May 16th, 2022 this UDP connection is not fully functional. The matching engine processes the order, attempting to match it with a resting order or otherwise placing limit orders on the book (if it’s a market order that can’t be executed, an error message is sent back to the client). After executing the trade, information about the trade is broadcast over UDP multicast to the tickerplant and dropcopy. The tickerplant then publishes public market data using UDP multicast to clients, and the dropcopy aggregates all private market data related to a single company and sends it to the main trader/client from the company. The tickerplant also broadcasts data updates when the BBO changes.
+We accomplished building the major components of an exchange, with various components networked together. The clients connect directly to the gateway using TCP to send their orders using a basic command line interface. After the order is submitted, it is sent to the gateway where we validate the order and send it forward to the order matching engine using UDP multicast. Note that as of May 16th, 2022 this UDP connection is not fully functional. The matching engine processes the order, attempting to match it with a resting order or otherwise placing limit orders on the book (if it’s a market order that can’t be executed, an error message is sent back to the client). After executing the trade, information about the trade is broadcast over UDP multicast to the tickerplant and dropcopy. The tickerplant then publishes public market data using UDP multicast to clients, and the dropcopy aggregates all private market data related to a single company and sends it to the main trader/client from the company. The tickerplant also broadcasts data updates when the BBO changes.
 
+
+![Client-Gateway Communcation](client_gateway.png "Mini Exchange Architecture Diagram")
+Above is an example of our client-gateway communication. On the left-hand side, is the client running with after a trade was input and sent to the gateway. On the right-hand side, is the gateway that has recieved and is displaying the trade from the client.
 ## Post-Mortem Project Analysis
 ### Nisha Pant Post-Mortem
 **1. What did you specifically do individually for this project?**
