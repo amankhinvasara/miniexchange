@@ -353,72 +353,6 @@ impl OrderBook {
         }
     }
 
-    // pub fn multicast_sender(addr: IpAddr) {
-    //     assert!(addr.is_multicast());
-    //
-    //     let addr = SocketAddr::new(addr, PORT);
-    //     let client_done = Arc::new(AtomicBool::new(false)); //tracks if client socket is running
-    //     let notify = crate::esb::NotifyServer(Arc::clone(&client_done));
-    //
-    //     // ESB::multicast_listener(client_done, addr);
-    //
-    //     println!("ipv4 :client: running");
-    //
-    //     //insert data to send
-    //     let trade = OrderUpdate {
-    //         trader_id: 1,
-    //         order_id: 1,
-    //         order_type: Market,
-    //         unit_price: 1,
-    //         qty: 1,
-    //         time_stamp: SystemTime::now(),
-    //         status: Filled
-    //     };
-    //
-    //     let encoded = bincode::serialize(&trade).unwrap();
-    //
-    //     println!("ipv4:client: send data: {:?}", trade);
-    //     println!("{:?}", encoded);
-    //
-    //     // Setup sending socket
-    //     let socket = ESB::new_sender(&addr).expect("could not create sender!");
-    //     socket.send_to(&encoded, &addr).expect("could not send_to!");
-    //
-    //
-    //     let mut buf = [0u8; 64]; // receive buffer
-    //
-    //     // Expected response
-    //     match socket.recv_from(&mut buf) {
-    //         Ok((len, remote_addr)) => {
-    //             let data = &buf[..len];
-    //
-    //             println!("{:?}", data);
-    //
-    //             let mut decoded: OrderUpdate = bincode::deserialize(data).unwrap();
-    //             decoded.trader_id = 0;
-    //             decoded.order_id = 0;
-    //
-    //             //let response = data;
-    //             println!("ipv4:client: got data: {:?}", decoded);
-    //         }
-    //
-    //         Err(err) => {
-    //             println!("ipv4:client: had a problem: {}", err);
-    //             assert!(false);
-    //         }
-    //     }
-    //     // Making sure that the server is not notified until the end of the client test
-    //     drop(notify);
-    // }
-
-    // pub fn interact_only() {
-    //     //thread::Builder::new().name("thread1".to_string()).spawn(move || {
-    //     //println!("Hello, world!");
-    //     let gate_addr = SocketAddr::new(addr, GATEWAY_PORT);
-    //     ESB::multicast_listener(gate_addr);
-    //     //});
-    // }
-
     pub fn ome_multicast_listener(addr: SocketAddr)  { //-> JoinHandle<()>
         // socket creation
         let listener = ESB::connect_multicast(addr).expect("failing to create listener");
@@ -457,28 +391,21 @@ impl OrderBook {
     pub fn multicast_sender(addr: IpAddr) {
         let addr = SocketAddr::new(addr, PORT);
         println!("ipv4 :client: running");
-        //insert data to send
-        // let trade = OrderUpdate {
-        //     trader_id: 1,
-        //     order_id: 1,
-        //     order_type: Market,
-        //     unit_price: 1,
-        //     qty: 1,
-        //     time_stamp: SystemTime::now(),
-        //     status: Filled
-        // }
+
+
         let trade = OrderBook::generate_random_trade();
         //println!("{:?} ", trade);
-        let sender = UdpSocket::bind("192.168.50.102:5021").expect("couldn't bind to address");
+        //let sender = UdpSocket::bind("224.0.1.124:5021").expect("couldn't bind to address");
         //socket.bind(&SockAddr::from(SocketAddr::new(Ipv4Addr::new(0, 0, 0, 0).into(), 0,);
+        //sender.set_ttl(255);
 
         let encoded = bincode::serialize(&trade).unwrap();
         //println!("ipv4:client: send data: {:?}", trade);
         //println!("{:?}", encoded);
         // Setup sending socket
-        //let socket = ESB::new_sender(&addr).expect("could not create sender!");
-        //socket.send_to(&encoded, &addr).expect("could not send_to!");
-        sender.send_to(&encoded, &addr).expect("could not send_to!");
+        let socket = ESB::new_sender(&addr).expect("could not create sender!");
+        socket.send_to(&encoded, &addr).expect("could not send_to!");
+        //sender.send_to(&encoded, &addr).expect("could not send_to!");
         println!("{:?} Sent", trade);
     }
 }

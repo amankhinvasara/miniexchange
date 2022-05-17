@@ -37,13 +37,7 @@ impl ESB {
     //basic helper functions
     // General for creating new socket
     pub fn new_socket(addr: &SocketAddr) -> io::Result<Socket> {
-        let domain = if addr.is_ipv4() {
-            Domain::ipv4()
-        } else {
-            Domain::ipv6()
-        };
-
-        let socket = Socket::new(domain, Type::dgram(), Some(Protocol::udp()))?;
+        let socket = Socket::new(Domain::ipv4(), Type::dgram(), Some(Protocol::udp()))?;
 
         // The read timeout prevents waiting for packets
         socket.set_read_timeout(Some(Duration::from_millis(100)))?;
@@ -55,6 +49,7 @@ impl ESB {
     pub fn connect_multicast(addr: SocketAddr) -> io::Result<std::net::UdpSocket> {
         let ip_addr = addr.ip();
         let socket = ESB::new_socket(&addr)?;
+
 
         match ip_addr {
             IpAddr::V4(ref mdns_v4) => {
@@ -72,61 +67,6 @@ impl ESB {
         Ok(socket.into_udp_socket())
     }
 
-
-    // pub fn multicast_listener(client_done: Arc<AtomicBool>, addr: SocketAddr, ) -> JoinHandle<()> {
-    //     let server_barrier = Arc::new(Barrier::new(2));
-    //     let client_barrier = Arc::clone(&server_barrier);
-    //     let join_handle = std::thread::Builder::new()
-    //         .name(format!("ipv4:server"))
-    //         .spawn(move || {
-    //
-    //             // socket creation
-    //             let listener = ESB::connect_multicast(addr).expect("failing to create listener");
-    //             println!("ipv4:server: joined: {}", addr);
-    //
-    //             server_barrier.wait();
-    //             println!("ipv4:server: is ready");
-    //
-    //             // Looping until the client is done.
-    //             while !client_done.load(std::sync::atomic::Ordering::Relaxed) {
-    //                 // test receive and response code will go here...
-    //                 let mut buf = [0u8; 64]; // receive buffer
-    //
-    //                 match listener.recv_from(&mut buf) {
-    //                     Ok((len, remote_addr)) => {
-    //                         //Adjusted for OrderUpdate data
-    //                         let data = &buf[..len];
-    //                         let mut decoded: OrderUpdate = bincode::deserialize(data).unwrap();
-    //
-    //                         let encoded = bincode::serialize(&decoded).unwrap();
-    //
-    //                         println!("ipv4:server: got data: {} from: {}", String::from_utf8_lossy(data), remote_addr);
-    //
-    //                         //create a socket to send the response
-    //                         let responder = ESB::new_socket(&remote_addr)
-    //                             .expect("failing to create responder")
-    //                             .into_udp_socket();
-    //
-    //                         //we send the response that was set at the method beginning
-    //                         responder
-    //                             .send_to(&encoded, &remote_addr)
-    //                             .expect("failing to respond");
-    //
-    //                         println!("ipv4:server: sent response to: {}", remote_addr);
-    //                     }
-    //                     Err(err) => {
-    //                         println!("ipv4:server: got an error: {}", err);
-    //                     }
-    //                 }
-    //             }
-    //
-    //             println!("ipv4:server: client is done");
-    //         })
-    //         .unwrap();
-    //
-    //     client_barrier.wait();
-    //     join_handle
-    // }
 
     pub fn multicast_listener(addr: SocketAddr)  { //-> JoinHandle<()>
         // socket creation
@@ -174,17 +114,8 @@ impl ESB {
     pub fn new_sender(addr: &SocketAddr) -> io::Result<std::net::UdpSocket> {
         let socket = ESB::new_socket(addr)?;
 
-        if addr.is_ipv4() {
-            socket.bind(&SockAddr::from(SocketAddr::new(
-                Ipv4Addr::new(0, 0, 0, 0).into(),
-                0,
-            )))?;
-        } else {
-            socket.bind(&SockAddr::from(SocketAddr::new(
-                Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 0).into(),
-                0,
-            )))?;
-        }
+        socket.bind(&SockAddr::from(SocketAddr::new(Ipv4Addr::new(0, 0, 0, 0).into(), 0, )))?;
+
         Ok(socket.into_udp_socket())
     }
 
@@ -211,10 +142,4 @@ impl ESB {
     // send data we get and receive data from OME
 
 }
-    #[cfg(test)]
-    #[test]
-    fn tp_test() {
-        assert!(IPV4.is_multicast());
-        OrderBook::multicast_sender(*IPV4);
-    }
 

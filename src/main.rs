@@ -43,8 +43,10 @@ fn main() {
 
     } else if input == "2" {
         //let addr = SocketAddr::new(*esb::IPV4, esb::PORT);
-        let listener = UdpSocket::bind("192.168.50.101:5021").expect("couldn't bind to address");
+        let listener = UdpSocket::bind("224.0.1.123:5021").expect("couldn't bind to address");
         listener.join_multicast_v4(&Ipv4Addr::new(224, 0, 1, 123), &Ipv4Addr::new(0, 0, 0, 0));
+
+
         loop {
             //ESB::multicast_listener(Arc::new(AtomicBool::new(false)), addr);
             //ESB::multicast_listener(addr);
