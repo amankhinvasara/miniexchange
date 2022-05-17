@@ -6,6 +6,7 @@ use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 use crate::esb::ESB;
 use crate::orderbook::OrderBook;
+use crate::tickerplant::TickerPlant;
 use crate::trade::Trade;
 
 
@@ -40,54 +41,7 @@ fn main() {
         //}
 
         // ome.listen();
-
-    } else if input == "2" {
-        //let addr = SocketAddr::new(*esb::IPV4, esb::PORT);
-        let listener = UdpSocket::bind("224.0.1.123:5021").expect("couldn't bind to address");
-        listener.join_multicast_v4(&Ipv4Addr::new(224, 0, 1, 123), &Ipv4Addr::new(0, 0, 0, 0));
-
-
-        loop {
-            //ESB::multicast_listener(Arc::new(AtomicBool::new(false)), addr);
-            //ESB::multicast_listener(addr);
-            // test receive and response code will go here...
-            let mut buf = [0u8; 64]; // receive buffer
-            println!("listening");
-            match listener.recv_from(&mut buf) {
-                Ok((len, remote_addr)) => {
-                    //Adjusted for OrderUpdate data
-                    let data = &buf[..len];
-                    let mut decoded: Trade = bincode::deserialize(data).unwrap();
-                    let encoded = bincode::serialize(&decoded).unwrap();
-
-                    println!("ipv4:server: got data: {} from: {}", String::from_utf8_lossy(data), remote_addr);
-                    println!("data: {:?}", decoded);
-
-                    // //create a socket to send the response
-                    // let forward_addr = SocketAddr::new(esb::IPV4.clone(), FORWARDER_PORT);
-                    // let forwarder = ESB::new_socket(&forward_addr).expect("failing to create responder").into_udp_socket();
-                    //
-                    // //we send the response that was set at the method beginning
-                    // forwarder.send_to(&encoded, &forward_addr).expect("failing to respond");
-                }
-                Err(err) => {
-                    println!("ipv4:server: got an error: {}", err);
-                }
-            }
-        }
-
-    } else if input == "3" {
-        let addr = SocketAddr::new(*esb::IPV4, esb::PORT);
-        //loop {
-        //ESB::multicast_listener(Arc::new(AtomicBool::new(false)), addr);
-        OrderBook::ome_multicast_listener(addr);
-        //}
-
     }
-    // else if input == "2" || input == "client" {
-    //     //run client
-    //     client::get_trade_from_client();
-    // }
 }
 
 

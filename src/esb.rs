@@ -32,7 +32,8 @@ lazy_static! {
 }
 pub const PORT: u16 = 5021;
 pub const GATEWAY_PORT: u16 = 5022;
-pub const FORWARDER_PORT: u16 = 5023;
+pub const PUBLIC_TP_FORWARDER_PORT: u16 = 5023;
+pub const PUBLIC_DPCP_FORWARDER_PORT: u16 = 5024;
 impl ESB {
     //basic helper functions
     // General for creating new socket

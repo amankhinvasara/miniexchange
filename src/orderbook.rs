@@ -10,7 +10,7 @@ use crate::trade::TradeType::{Buy, Sell};
 use crate::trade::Status::{Filled, PartiallyFilled, Failed, Success};
 use rand::Rng;
 use ntest::timeout;
-use crate::esb::ESB;
+use crate::esb::{ESB, PORT, PUBLIC_TP_FORWARDER_PORT};
 use lazy_static::lazy_static;
 use crate::esb;
 
@@ -18,7 +18,6 @@ use crate::esb;
 //TODO make book and prices only visible for tests
 pub struct OrderBook {
     pub book: HashMap<u64, Trade>, //order_id, Trade
-    //https://stackoverflow.com/questions/28656387/initialize-a-large-fixed-size-array-with-non-copy-types
     //index is price, LL is trades at that price
     pub prices: HashMap<u64, Option<LinkedList<Trade>>>,
     //bids- people who are buying -> should be least to greatest
@@ -31,19 +30,10 @@ pub struct OrderBook {
 lazy_static! {
     pub static ref IPV4: IpAddr = Ipv4Addr::new(224, 0, 0, 123).into();
 }
-pub const PORT: u16 = 5021;
-pub const GATEWAY_PORT: u16 = 5022;
-pub const FORWARDER_PORT: u16 = 5023;
 
 impl OrderBook {
     //cleanup all trades as the end of the day or need some other scheme to clean expired trades
     pub fn new() -> Self {
-        //const SIZE: usize = 18446744073709551615; 64
-        //const SIZE: usize = 4294967296; 32
-        //const SIZE: usize = 65536; 16
-        // const SIZE: usize = 256;
-        // const INIT: Option<LinkedList<Trade>> = Some(LinkedList::new());
-        // let array: [Option<LinkedList<Trade>>; SIZE] = [INIT; SIZE];
         Self {
             book: HashMap::new(),
             prices: HashMap::new(),
@@ -52,7 +42,7 @@ impl OrderBook {
         }
     }
 
-    pub fn single_trade_to_update(& mut self, input: Trade, input_status: u8) -> OrderUpdate {
+    fn single_trade_to_update(input: Trade, input_status: u8) -> OrderUpdate {
         let stat: Status;
         if input_status == 1 {
             stat = Success;
@@ -111,7 +101,7 @@ impl OrderBook {
         //insert new list into price levels (should override previous list) and remove from book
         let store = self.book[&order_id].clone();
         self.book.remove(&order_id);
-        return self.single_trade_to_update(store, 1);
+        return OrderBook::single_trade_to_update(store, 1);
     }
 
 
@@ -134,13 +124,13 @@ impl OrderBook {
         } else if trade.trade_type == Sell && trade.unit_price < self.ask_min {
             self.ask_min = trade.unit_price;
         }
-        return self.single_trade_to_update(trade, 1);
+        return OrderBook::single_trade_to_update(trade, 1);
     }
 
 
     pub fn modify(&mut self, order_id: u64, trade_input: Trade) -> OrderUpdate {
         if trade_input.order_id != order_id {
-            return self.single_trade_to_update(trade_input, 0); //modify fails
+            return OrderBook::single_trade_to_update(trade_input, 0); //modify fails
         }
         self.remove(order_id);
         let two = self.insert(trade_input);
@@ -278,7 +268,6 @@ impl OrderBook {
     }
 
 
-    //TODO create another function that routes to add/modify/match based on order type
     //Enforce that route and maybe "fn top" are the only point of interaction w the order book
     pub fn route(&mut self, incoming_trade: Trade) -> Vec<OrderUpdate> {
         //if the order id already exists then send it to modify or cancel??????
@@ -358,8 +347,6 @@ impl OrderBook {
         let listener = ESB::connect_multicast(addr).expect("failing to create listener");
         println!("ipv4:server: joined: {}", addr);
 
-        println!("ipv4:server: is ready");
-
         // Looping infinitely.
         loop {
             // test receive and response code will go here...
@@ -376,7 +363,7 @@ impl OrderBook {
                     println!("data: {:?}", decoded);
 
                     //create a socket to send the response
-                    let forward_addr = SocketAddr::new(esb::IPV4.clone(), FORWARDER_PORT);
+                    let forward_addr = SocketAddr::new(esb::IPV4.clone(), PUBLIC_TP_FORWARDER_PORT);
                     let forwarder = ESB::new_socket(&forward_addr).expect("failing to create responder").into_udp_socket();
 
                     //we send the response that was set at the method beginning
@@ -388,18 +375,20 @@ impl OrderBook {
             }
         }
     }
+
     pub fn multicast_sender(addr: IpAddr) {
         let addr = SocketAddr::new(addr, PORT);
         println!("ipv4 :client: running");
 
 
         let trade = OrderBook::generate_random_trade();
+        let update = OrderBook::single_trade_to_update(trade, 1);
         //println!("{:?} ", trade);
         //let sender = UdpSocket::bind("224.0.1.124:5021").expect("couldn't bind to address");
         //socket.bind(&SockAddr::from(SocketAddr::new(Ipv4Addr::new(0, 0, 0, 0).into(), 0,);
         //sender.set_ttl(255);
 
-        let encoded = bincode::serialize(&trade).unwrap();
+        let encoded = bincode::serialize(&update).unwrap();
         //println!("ipv4:client: send data: {:?}", trade);
         //println!("{:?}", encoded);
         // Setup sending socket
