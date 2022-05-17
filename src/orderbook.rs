@@ -1,7 +1,9 @@
 use std::collections::{HashMap, LinkedList};
-use crate::trade::{Trade};
+use crate::trade::{Trade, TradeType};
 use crate::trade::OrderType::{Limit, Market};
 use crate::trade::TradeType::{Buy, Sell};
+use rand::Rng;
+
 
 
 //TODO make book and prices only visible for tests
