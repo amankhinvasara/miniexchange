@@ -1,15 +1,9 @@
 # An Order Matching Engine, Gateway, Dropcopy and Tickerplant written in Rust
 
-This is the base project for Group 05 for IE498 HFT in Spring 2022.
+Adapted from UIUC's HFT (IE 498) course with Professor David Lariviere. 
+Credits to Akul Gupta, Akhil Isanaka, and Nisha Pant for much of the original work during the SP22 semester.
+Expansion is mine. 
 
-## Teammates:
-
-
-
-1. Akhil Isanaka - isanaka2@illinois.edu (Co-Team Leader)
-2. Nisha Pant - nishap2@illinois.edu (Co-Team Leader)
-3. Akul Gupta - akulg3@illinois.edu
-4. Aman Khinvasara - amantk2@illinois.edu
 
 ## Final Report
 [Final Report](FinalReport.md)
